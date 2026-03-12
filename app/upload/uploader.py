@@ -4,6 +4,7 @@ FINTECH555 — Decision Intelligence Platform
 File: app/upload/uploader.py
 Purpose: Drag-and-drop CSV/Excel file upload handler.
          Accepts multiple broker formats, delegates to validator and parser.
+         Also supports one-click local sample data loading for demos.
 ================================================================================
 """
 
@@ -13,6 +14,33 @@ from upload.validator import validate_dataframe
 from upload.broker_parser import detect_and_parse_broker
 from config.settings import THEME
 
+# ─────────────────────────────────────────────────────────────────────────────
+# 📁 Local Sample File Path
+# Place your sample CSV or Excel file at this path inside the project:
+#   FINTECH555/data/sample/sample_broker_report.csv
+# ─────────────────────────────────────────────────────────────────────────────
+SAMPLE_FILE_PATH = "data/sample/sample_broker_report.csv"
+SAMPLE_FILE_NAME = "sample_broker_report.csv"
+
+
+def _load_local_sample() -> pd.DataFrame | None:
+    """
+    Reads the bundled sample CSV from the local data/sample/ folder.
+    Returns a raw DataFrame, or None if the file is missing.
+    """
+    try:
+        df = pd.read_csv(SAMPLE_FILE_PATH)
+        return df
+    except FileNotFoundError:
+        st.error(
+            f"❌ Sample file not found at `{SAMPLE_FILE_PATH}`. "
+            "Please place your sample CSV there and restart the app."
+        )
+        return None
+    except Exception as e:
+        st.error(f"❌ Could not read sample file: {e}")
+        return None
+
 
 def render_uploader() -> pd.DataFrame | None:
     """
@@ -21,7 +49,12 @@ def render_uploader() -> pd.DataFrame | None:
 
     Concept: Single-entry point for all data ingestion.
     Pipeline: upload → broker detection → column mapping → validation → clean df
+
+    Two input modes:
+      1. User uploads their own CSV/Excel broker report
+      2. User clicks 'Try with Sample Data' to load the bundled local sample
     """
+
     # ── Upload widget — accepts CSV and Excel formats from all major brokers
     uploaded_file = st.file_uploader(
         label="📂 Drop your trade history here (CSV or Excel)",
@@ -30,20 +63,40 @@ def render_uploader() -> pd.DataFrame | None:
         label_visibility="visible",
     )
 
-    if uploaded_file is None:
-        # ── Render placeholder UI when no file is loaded yet
+    # ── Session state: track if sample mode is active
+    if "load_sample" not in st.session_state:
+        st.session_state["load_sample"] = False
+
+    # ── If user uploads a real file, disable sample mode automatically
+    if uploaded_file is not None:
+        st.session_state["load_sample"] = False
+
+    # ── Neither uploaded nor sample clicked → show placeholder
+    if uploaded_file is None and not st.session_state["load_sample"]:
         _render_upload_placeholder()
         return None
 
-    # ── Read raw file into DataFrame based on file extension
-    try:
-        if uploaded_file.name.endswith(".csv"):
-            raw_df = pd.read_csv(uploaded_file)    # CSV: use pandas read_csv
-        else:
-            raw_df = pd.read_excel(uploaded_file)  # Excel: use openpyxl engine
-    except Exception as e:
-        st.error(f"❌ Could not read file: {e}")
-        return None
+    # ── Determine data source: local sample OR user upload
+    if st.session_state["load_sample"]:
+        raw_df = _load_local_sample()
+        if raw_df is None:
+            st.session_state["load_sample"] = False
+            return None
+        st.info(
+            "📊 Using **Sample Report** — this is a demo trade history file. "
+            "You can upload your own file anytime using the uploader above."
+        )
+
+    else:
+        # ── Read raw file into DataFrame based on file extension
+        try:
+            if uploaded_file.name.endswith(".csv"):
+                raw_df = pd.read_csv(uploaded_file)    # CSV: use pandas read_csv
+            else:
+                raw_df = pd.read_excel(uploaded_file)  # Excel: use openpyxl engine
+        except Exception as e:
+            st.error(f"❌ Could not read file: {e}")
+            return None
 
     # ── Pass raw dataframe to broker parser — detects format and maps columns
     parsed_df, broker_name, mapping_info = detect_and_parse_broker(raw_df)
@@ -76,6 +129,10 @@ def _render_upload_placeholder():
     """
     Renders an attractive placeholder card when no file is uploaded.
     Uses HTML injection to match the dark FinTech theme from settings.THEME.
+
+    Shows two options:
+      - ⬇️ Download Sample File  →  saves the sample CSV to user's machine
+      - 🚀 Try with Sample Data  →  loads the sample directly into the app
     """
     st.markdown(f"""
     <div style="
@@ -95,17 +152,37 @@ def _render_upload_placeholder():
         <p style="color: {THEME['text']}; font-size: 14px; margin-top: 20px;">
             🔒 Your data never leaves your browser session. All analytics run locally.
         </p>
+        <hr style="border-color: {THEME['green']}33; margin: 20px 0;">
+        <p style="color: {THEME['subtext']}; font-size: 13px;">
+            Don't have a file handy? Use the sample report below 👇
+        </p>
     </div>
     """, unsafe_allow_html=True)
 
-    # ── Sample data download for demo/testing purposes
-    col1, col2, col3 = st.columns([1, 2, 1])
+    # ── Two side-by-side buttons for sample file options
+    col1, col2, col3 = st.columns([1, 1, 1])
+
+    with col1:
+        # Download button — user saves the sample CSV to their own machine
+        try:
+            with open(SAMPLE_FILE_PATH, "r") as f:
+                st.download_button(
+                    label="⬇️ Download Sample File",
+                    data=f.read(),
+                    file_name=SAMPLE_FILE_NAME,
+                    mime="text/csv",
+                    use_container_width=True,
+                    help="Save the sample CSV to your computer, then upload it above.",
+                )
+        except FileNotFoundError:
+            st.warning(f"Sample file not found at `{SAMPLE_FILE_PATH}`")
+
     with col2:
-        with open("data/sample/sample_broker_report.csv", "r") as f:
-            st.download_button(
-                label="⬇️ Download Sample Trade File",
-                data=f.read(),
-                file_name="sample_trades.csv",
-                mime="text/csv",
-                use_container_width=True,
-            )
+        # One-click load — no download needed, loads directly into the pipeline
+        if st.button(
+            "🚀 Try with Sample Data",
+            use_container_width=True,
+            help="Instantly loads the bundled sample report — perfect for demos!",
+        ):
+            st.session_state["load_sample"] = True
+            st.rerun()

@@ -207,7 +207,7 @@ def render_report(df_raw: pd.DataFrame):
             # What-If Improvement Slider — educational: shows which lever matters most
             st.markdown("#### 🔧 What-If Improvement Simulator")
             st.caption("Drag to see how improving one dimension changes your total DIS score.")
-            exit_boost  = st.slider("Improve Exit Discipline +", 0, 15, 0, key="exit_slider")
+            exit_boost     = st.slider("Improve Exit Discipline +", 0, 15, 0, key="exit_slider")
             patience_boost = st.slider("Improve Patience Score +", 0, 10, 0, key="pat_slider")
             # Linear improvement: add the boost to respective component scores
             simulated_score = min(100, dis.get("score", 0) + exit_boost + patience_boost)
@@ -294,9 +294,9 @@ def render_report(df_raw: pd.DataFrame):
         # ── Loss Attribution metrics
         loss_cols = st.columns(4)
         loss_keys = [("Total Losses", f"{loss.get('total_losses', 0)}"),
-                     ("Avg Loss", f"₹{loss.get('avg_loss', 0):,.0f}"),
-                     ("Top Cause", loss.get("top_cause", "N/A")),
-                     ("Preventable", f"{loss.get('preventable_pct', 0):.0f}%")]
+                     ("Avg Loss",     f"₹{loss.get('avg_loss', 0):,.0f}"),
+                     ("Top Cause",    loss.get("top_cause", "N/A")),
+                     ("Preventable",  f"{loss.get('preventable_pct', 0):.0f}%")]
         for col, (label, val) in zip(loss_cols, loss_keys):
             with col:
                 st.metric(label, val)
@@ -312,11 +312,11 @@ def render_report(df_raw: pd.DataFrame):
             st.markdown("#### 📉 Drawdown Metrics")
             dd_cols = st.columns(2)
             with dd_cols[0]:
-                st.metric("Max Drawdown", f"{draw.get('max_drawdown_pct', 0):.1f}%")
-                st.metric("Calmar Ratio", f"{draw.get('calmar_ratio', 0):.2f}")
+                st.metric("Max Drawdown",  f"{draw.get('max_drawdown_pct', 0):.1f}%")
+                st.metric("Calmar Ratio",  f"{draw.get('calmar_ratio', 0):.2f}")
             with dd_cols[1]:
-                st.metric("Duration (days)", f"{draw.get('max_drawdown_duration', 0)}")
-                st.metric("Avg Recovery", f"{draw.get('avg_recovery_days', 0):.0f}d")
+                st.metric("Duration (days)",  f"{draw.get('max_drawdown_duration', 0)}")
+                st.metric("Avg Recovery",     f"{draw.get('avg_recovery_days', 0):.0f}d")
 
             # Drawdown area chart — shows underwater periods visually
             drawdown_series = draw.get("rolling_drawdown")
@@ -338,7 +338,8 @@ def render_report(df_raw: pd.DataFrame):
                        "6-dimensional behavioral fingerprint classifies your trading archetype.")
 
         dna_cols = st.columns(3)
-        dna_dims = ["precision", "patience", "consistency", "risk_control", "adaptability", "sector_mastery"]
+        dna_dims = ["precision", "patience", "consistency",
+                    "risk_control", "adaptability", "sector_mastery"]
         for i, dim in enumerate(dna_dims):
             with dna_cols[i % 3]:
                 st.metric(dim.replace("_", " ").title(), f"{dna.get(dim, 0):.0f}/100")
@@ -392,6 +393,8 @@ def render_report(df_raw: pd.DataFrame):
     # ──────────────────────────────────────────────────────────────────
     # TAB 6: PREDICTION ENGINE (Module 10)
     # GBM + Ridge Regression + k-NN Regressor
+    # FIX: next_win_prob is already 0–100, do NOT multiply by 100
+    # FIX: accuracy is 0.0–0.95, cap display at 95%
     # ──────────────────────────────────────────────────────────────────
     with tabs[6]:
         section_header("🔮 Predictive Analytics Engine",
@@ -402,11 +405,13 @@ def render_report(df_raw: pd.DataFrame):
             pred = compute_predictions(df)
             p_cols = st.columns(4)
             with p_cols[0]:
-                st.metric("Next Win Probability", f"{pred.get('next_win_prob', 0.5)*100:.0f}%")
+                # next_win_prob is stored as 0–100 float (e.g. 73.0) — display directly
+                st.metric("Next Win Probability", f"{pred.get('next_win_prob', 50):.1f}%")
             with p_cols[1]:
                 st.metric("Recommended Hold", f"{pred.get('next_hold_rec', 10):.0f} days")
             with p_cols[2]:
-                st.metric("Model Accuracy", f"{pred.get('accuracy', 0)*100:.0f}%")
+                # accuracy is 0.0–0.95 float — multiply by 100 for %, cap at 95
+                st.metric("Model Accuracy", f"{min(pred.get('accuracy', 0) * 100, 95):.0f}%")
             with p_cols[3]:
                 st.metric("Data Sufficient", "✅ Yes" if pred.get("sufficient_data") else "⚠️ Need More")
 
@@ -414,8 +419,10 @@ def render_report(df_raw: pd.DataFrame):
                 st.markdown("**Top Predictive Features (SHAP):**")
                 feat_imp = pred.get("feature_imp", {})
                 if feat_imp:
-                    feat_df = pd.DataFrame(list(feat_imp.items()),
-                                           columns=["Feature", "Importance"]).sort_values("Importance", ascending=False)
+                    feat_df = pd.DataFrame(
+                        list(feat_imp.items()),
+                        columns=["Feature", "Importance"]
+                    ).sort_values("Importance", ascending=False)
                     st.bar_chart(feat_df.set_index("Feature"))
             else:
                 st.info(f"Need at least 15 trades for ML prediction. You have {len(df)} so far.")
@@ -435,13 +442,13 @@ def render_report(df_raw: pd.DataFrame):
         if not sector_stats.empty:
             s_cols = st.columns(4)
             with s_cols[0]:
-                st.metric("Best Sector", sector.get("best_sector", "N/A"))
+                st.metric("Best Sector",       sector.get("best_sector", "N/A"))
             with s_cols[1]:
-                st.metric("Worst Sector", sector.get("worst_sector", "N/A"))
+                st.metric("Worst Sector",      sector.get("worst_sector", "N/A"))
             with s_cols[2]:
-                st.metric("Gini Coefficient", f"{sector.get('gini', 0):.3f}")
+                st.metric("Gini Coefficient",  f"{sector.get('gini', 0):.3f}")
             with s_cols[3]:
-                st.metric("Herfindahl Index", f"{sector.get('herfindahl', 0):.3f}")
+                st.metric("Herfindahl Index",  f"{sector.get('herfindahl', 0):.3f}")
 
             try:
                 st.plotly_chart(chart_sector_heatmap(sector), use_container_width=True)
@@ -455,9 +462,9 @@ def render_report(df_raw: pd.DataFrame):
         if frontier_data is not None and not frontier_data.empty:
             f_cols = st.columns(3)
             with f_cols[0]:
-                st.metric("Current Volatility", f"{frontier.get('current_vol', 0):.1f}%")
+                st.metric("Current Volatility",     f"{frontier.get('current_vol', 0):.1f}%")
             with f_cols[1]:
-                st.metric("Optimal Volatility", f"{frontier.get('optimal_vol', 0):.1f}%")
+                st.metric("Optimal Volatility",     f"{frontier.get('optimal_vol', 0):.1f}%")
             with f_cols[2]:
                 st.metric("Vol Reduction Possible", f"{frontier.get('vol_reduction', 0):.1f}%")
             st.markdown(frontier.get("insight", ""))
@@ -475,11 +482,11 @@ def render_report(df_raw: pd.DataFrame):
         st.markdown("#### 💰 Tax Intelligence")
         t_cols = st.columns(4)
         with t_cols[0]:
-            st.metric("Total Tax Paid", f"₹{tax.get('total_tax_paid', 0):,.0f}")
+            st.metric("Total Tax Paid",         f"₹{tax.get('total_tax_paid', 0):,.0f}")
         with t_cols[1]:
-            st.metric("STCG Tax", f"₹{tax.get('stcg_tax', 0):,.0f}")
+            st.metric("STCG Tax",               f"₹{tax.get('stcg_tax', 0):,.0f}")
         with t_cols[2]:
-            st.metric("LTCG Tax", f"₹{tax.get('ltcg_tax', 0):,.0f}")
+            st.metric("LTCG Tax",               f"₹{tax.get('ltcg_tax', 0):,.0f}")
         with t_cols[3]:
             st.metric("Tax Optimization Score", f"{tax.get('tax_opt_score', 0):.0f}/100")
 
@@ -497,7 +504,7 @@ def render_report(df_raw: pd.DataFrame):
         with cap_cols[0]:
             st.metric("Pearson r (Capital vs PnL%)", f"{cap_eff.get('pearson_r', 0):.3f}")
         with cap_cols[1]:
-            st.metric("Capital Efficiency Score", f"{cap_eff.get('efficiency_score', 0):.0f}/100")
+            st.metric("Capital Efficiency Score",    f"{cap_eff.get('efficiency_score', 0):.0f}/100")
         with cap_cols[2]:
             st.metric("Optimal Capital Band",
                       f"₹{cap_eff.get('optimal_min', 0):,.0f}–₹{cap_eff.get('optimal_max', 0):,.0f}")
@@ -509,13 +516,13 @@ def render_report(df_raw: pd.DataFrame):
         st.markdown("#### 📐 Kelly Criterion — Optimal Position Sizing")
         k_cols = st.columns(4)
         with k_cols[0]:
-            st.metric("Full Kelly f*", f"{kelly.get('full_kelly', 0)*100:.1f}%")
+            st.metric("Full Kelly f*",            f"{kelly.get('full_kelly', 0)*100:.1f}%")
         with k_cols[1]:
             st.metric("Half Kelly (Recommended)", f"{kelly.get('half_kelly', 0)*100:.1f}%")
         with k_cols[2]:
-            st.metric("Current Avg Sizing", f"{kelly.get('current_avg_sizing', 0)*100:.1f}%")
+            st.metric("Current Avg Sizing",       f"{kelly.get('current_avg_sizing', 0)*100:.1f}%")
         with k_cols[3]:
-            st.metric("Kelly Adherence Score", f"{kelly.get('adherence_score', 0):.0f}/100")
+            st.metric("Kelly Adherence Score",    f"{kelly.get('adherence_score', 0):.0f}/100")
         st.info(kelly.get("insight", "Kelly criterion analysis complete."))
 
     # ──────────────────────────────────────────────────────────────────
@@ -530,13 +537,13 @@ def render_report(df_raw: pd.DataFrame):
         st.markdown("#### 🔥 Streak Analysis")
         str_cols = st.columns(4)
         with str_cols[0]:
-            st.metric("Longest Win Streak", streak.get("longest_win_streak", 0))
+            st.metric("Longest Win Streak",      streak.get("longest_win_streak", 0))
         with str_cols[1]:
-            st.metric("Longest Loss Streak", streak.get("longest_loss_streak", 0))
+            st.metric("Longest Loss Streak",     streak.get("longest_loss_streak", 0))
         with str_cols[2]:
             st.metric("Post-Loss Re-entry Rate", f"{streak.get('post_loss_reentry_rate', 0):.0f}%")
         with str_cols[3]:
-            st.metric("Post-Loss Win Rate", f"{streak.get('post_loss_win_rate', 0):.0f}%")
+            st.metric("Post-Loss Win Rate",      f"{streak.get('post_loss_win_rate', 0):.0f}%")
         st.info(streak.get("insight", "Streak analysis complete."))
 
         st.markdown("---")
@@ -556,11 +563,11 @@ def render_report(df_raw: pd.DataFrame):
                              else dow_data.iloc[:, :2].set_index(dow_data.columns[0]))
         t_cols = st.columns(3)
         with t_cols[0]:
-            st.metric("Best Trading Day", time_p.get("best_day", "N/A"))
+            st.metric("Best Trading Day",  time_p.get("best_day", "N/A"))
         with t_cols[1]:
             st.metric("Worst Trading Day", time_p.get("worst_day", "N/A"))
         with t_cols[2]:
-            st.metric("Chi² p-value", f"{time_p.get('chi2_pvalue', 1):.3f}")
+            st.metric("Chi² p-value",      f"{time_p.get('chi2_pvalue', 1):.3f}")
         st.info(time_p.get("insight", "Time pattern analysis complete."))
 
     # ──────────────────────────────────────────────────────────────────
@@ -596,14 +603,14 @@ def render_report(df_raw: pd.DataFrame):
         st.markdown("#### 🎲 Bayesian Win Rate — How Confident Are We?")
         b_cols = st.columns(4)
         with b_cols[0]:
-            st.metric("Posterior Win Rate", f"{bayes.get('posterior_mean', 50):.1f}%")
+            st.metric("Posterior Win Rate",    f"{bayes.get('posterior_mean', 50):.1f}%")
         with b_cols[1]:
             st.metric("95% Credible Interval",
                       f"{bayes.get('ci_lower', 0):.1f}%–{bayes.get('ci_upper', 100):.1f}%")
         with b_cols[2]:
-            st.metric("Trades to Stabilize", f"{bayes.get('trades_to_stability', '?')}")
+            st.metric("Trades to Stabilize",  f"{bayes.get('trades_to_stability', '?')}")
         with b_cols[3]:
-            st.metric("Evidence Strength", bayes.get("evidence_strength", "Weak"))
+            st.metric("Evidence Strength",    bayes.get("evidence_strength", "Weak"))
         st.info(bayes.get("insight", "Bayesian win rate analysis complete."))
 
         st.markdown("---")
@@ -703,7 +710,10 @@ def _build_text_summary(df, dis, panic, skill, tax, xai) -> str:
     ]
     for a in xai.get("top_actions", []):
         lines.append(f"  [{a.get('priority', 'HIGH')}] {a.get('action', '')}")
-    lines += ["", "=" * 60,
-              "Generated by FINTECH555 — Decision Intelligence Platform",
-              "Not investment advice. For educational purposes only."]
+    lines += [
+        "",
+        "=" * 60,
+        "Generated by FINTECH555 — Decision Intelligence Platform",
+        "Not investment advice. For educational purposes only.",
+    ]
     return "\n".join(lines)
