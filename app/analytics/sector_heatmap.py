@@ -36,7 +36,7 @@ def compute_sector_heatmap(df: pd.DataFrame) -> dict:
         lorenz = np.concatenate([[0], lorenz])
         freq   = np.linspace(0, 1, n + 1)
         # Gini = 1 - 2 × area under Lorenz curve (trapezoidal approximation)
-        gini = 1 - 2 * np.trapz(lorenz, freq)
+        gini = 1 - 2 * np.trapezoid(lorenz, freq)
     else:
         gini = 0
 
